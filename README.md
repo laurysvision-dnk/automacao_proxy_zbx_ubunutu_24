@@ -9,11 +9,11 @@ Esta primeira versão atende **Ubuntu 24.04 / Linux amd64**. Os dois executávei
 Use as URLs deste repositório abaixo. Em repositório privado, configure antes uma chave de leitura para o Git; não inclua tokens na URL.
 
 ```bash
-INSTALLER_URL='https://raw.githubusercontent.com/laurysvision-dnk/automacao_proxy_zbx_ubunutu_24/v1.0.0/bootstrap.sh'
+INSTALLER_URL='https://raw.githubusercontent.com/laurysvision-dnk/automacao_proxy_zbx_ubunutu_24/v1.0.1/bootstrap.sh'
 REPO_GIT='https://github.com/laurysvision-dnk/automacao_proxy_zbx_ubunutu_24.git'
 curl -fsSL "$INSTALLER_URL" -o /tmp/observa-proxy-bootstrap.sh
 sudo bash /tmp/observa-proxy-bootstrap.sh \
-  --repo "$REPO_GIT" --ref v1.0.0 \
+  --repo "$REPO_GIT" --ref v1.0.1 \
   --server zabbix.exemplo.com.br \
   --hostname PRX-NOVO-PROVEDOR
 ```
@@ -46,11 +46,9 @@ O host deve existir no Zabbix, estar associado a este proxy e ter esse item trap
 
 Nesta versão há **um concentrador PPPoE por proxy**, reproduzindo a instalação encontrada. Reexecutar o instalador sem parâmetros PPPoE preserva a configuração anterior.
 
-## WireGuard e TLS
+## Rede e TLS
 
-A comunicação do proxy auditado com o Zabbix usa WireGuard. A nova VM também precisa de uma rota funcional até o servidor e os equipamentos. Chaves e endereços de túnel são individuais por VM e não são copiados do proxy da Conecta.
-
-Para instalar uma configuração de túnel já emitida para a nova VM, acrescente `--wireguard-config-file /root/wg0.conf`. O instalador instala `wireguard-tools`, protege `/etc/wireguard/wg0.conf` e habilita `wg-quick@wg0` antes dos serviços Zabbix. O arquivo contém segredos e deve permanecer fora do repositório. Sem esse parâmetro, o instalador mantém a rede existente.
+O instalador não instala nem configura WireGuard. A conectividade da VM com o servidor Zabbix e os equipamentos deve ser preparada separadamente.
 
 Para TLS PSK acrescente `--psk-file /root/proxy.psk --psk-identity PRX-NOVO-PROVEDOR`. A chave precisa conter 32 a 512 caracteres hexadecimais, em quantidade par. Cadastre a mesma identidade/chave na configuração do proxy e, se monitorar o Agent2, na configuração daquele host no Zabbix.
 

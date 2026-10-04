@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 umask 077
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-server='' proxy_name='' pppoe_target='' pppoe_host='' community_file='' psk_file='' psk_identity='' wireguard_file=''
+server='' proxy_name='' pppoe_target='' pppoe_host='' community_file='' psk_file='' psk_identity=''
 dry_run=0 no_start=0 replace_config=0 install_go=0
 usage() {
   cat <<'HELP'
@@ -12,7 +12,6 @@ Uso: sudo bash install.sh --server IP_OU_DNS --hostname NOME_PROXY [opções]
   --community-file ARQUIVO   Arquivo local com a comunidade SNMP; não é copiado ao Git
   --psk-file ARQUIVO         PSK hexadecimal para criptografia Zabbix
   --psk-identity NOME        Identidade PSK cadastrada no Zabbix
-  --wireguard-config-file ARQUIVO  Configuração wg0 já emitida para esta VM (opcional)
   --install-go              Instalar ferramenta Go do Ubuntu (opcional)
   --replace-config          Permitir substituir configuração de proxy existente
   --no-start                Instalar e validar arquivos sem iniciar/habilitar serviços
@@ -23,11 +22,11 @@ HELP
 fail() { printf 'Erro: %s\n' "$*" >&2; exit 1; }
 while (($#)); do
   case "$1" in
-    --server|--hostname|--pppoe-target|--pppoe-host|--community-file|--psk-file|--psk-identity|--wireguard-config-file)
+    --server|--hostname|--pppoe-target|--pppoe-host|--community-file|--psk-file|--psk-identity)
       (($# >= 2)) || fail "Falta valor para $1"
       case "$1" in
         --server) server=$2;; --hostname) proxy_name=$2;; --pppoe-target) pppoe_target=$2;;
-        --pppoe-host) pppoe_host=$2;; --community-file) community_file=$2;; --psk-file) psk_file=$2;; --psk-identity) psk_identity=$2;; --wireguard-config-file) wireguard_file=$2;;
+        --pppoe-host) pppoe_host=$2;; --community-file) community_file=$2;; --psk-file) psk_file=$2;; --psk-identity) psk_identity=$2;;
       esac
       shift 2;;
     --dry-run) dry_run=1; shift;; --no-start) no_start=1; shift;; --replace-config) replace_config=1; shift;; --install-go) install_go=1; shift;;
@@ -47,11 +46,9 @@ if [[ -n $psk_file || -n $psk_identity ]]; then
   [[ $psk =~ ^[[:xdigit:]]+$ && ${#psk} -ge 32 && ${#psk} -le 512 && $((${#psk} % 2)) -eq 0 ]] || fail 'PSK precisa de 32 a 512 caracteres hexadecimais, em quantidade par.'
   unset psk
 fi
-[[ -z $wireguard_file || ( -s $wireguard_file && -r $wireguard_file ) ]] || fail "Configuração WireGuard não está acessível."
 if ((dry_run)); then
   printf 'Plano: Zabbix Proxy 7.0 SQLite + Agent2, SNMP, Python/venv, whois e coletores ópticos/BGP.\nServidor: %s\nProxy: %s\n' "$server" "$proxy_name"
   [[ -z $pppoe_target ]] || printf 'PPPoE: %s, host %s, timer de cinco minutos; segredo vindo de arquivo local.\n' "$pppoe_target" "$pppoe_host"
-  [[ -z $wireguard_file ]] || printf 'WireGuard: configurar wg0 a partir de arquivo local; chaves não serão exibidas.\n'
   [[ -z $psk_file ]] || printf 'TLS PSK habilitado; conteúdo não será exibido.\n'
   exit 0
 fi
@@ -78,7 +75,7 @@ restore_policy() {
 trap restore_policy EXIT
 backup_dir="/var/backups/observa-proxy/$(date -u +%Y%m%dT%H%M%SZ)-$$"
 install -d -m 700 "$backup_dir"
-for path in /etc/wireguard/wg0.conf /etc/zabbix/zabbix_proxy.conf /etc/zabbix/zabbix_agent2.conf /etc/zabbix/observa.psk /etc/pppoe-sessions/community /etc/pppoe-sessions/collector.env /opt/asnname/asnamev4.py /opt/asnname/asnamev6.py /opt/asnname/status_as.py /etc/eras/snmp_project/snmp_monitor /usr/local/bin/pppoe-sessions /etc/systemd/system/pppoe-sessions.service /etc/systemd/system/pppoe-sessions.timer; do
+for path in /etc/zabbix/zabbix_proxy.conf /etc/zabbix/zabbix_agent2.conf /etc/zabbix/observa.psk /etc/pppoe-sessions/community /etc/pppoe-sessions/collector.env /opt/asnname/asnamev4.py /opt/asnname/asnamev6.py /opt/asnname/status_as.py /etc/eras/snmp_project/snmp_monitor /usr/local/bin/pppoe-sessions /etc/systemd/system/pppoe-sessions.service /etc/systemd/system/pppoe-sessions.timer; do
   if [[ -f $path ]]; then cp --parents -- "$path" "$backup_dir/"; fi
 done
 export DEBIAN_FRONTEND=noninteractive
@@ -106,13 +103,7 @@ exit 0
 POLICY
 chmod 755 /usr/sbin/policy-rc.d
 apt-get install -y -qq -o Dpkg::Options::=--force-confold zabbix-proxy-sqlite3 zabbix-agent2 zabbix-sender
-if [[ -n $wireguard_file ]]; then
-  apt-get install -y -qq wireguard-tools
-  install -d -m 700 /etc/wireguard
-  install -m 600 "$wireguard_file" "$work_dir/wg0.conf"
-  wg-quick strip "$work_dir/wg0.conf" >/dev/null
-  install -m 600 "$work_dir/wg0.conf" /etc/wireguard/wg0.conf
-fi
+
 ((!install_go)) || apt-get install -y -qq golang-go
 install -d -m 755 /opt/asnname /etc/eras/snmp_project /usr/lib/zabbix/externalscripts
 if [[ ! -x /opt/asnname/venv/bin/python3 ]]; then python3 -m venv /opt/asnname/venv; fi
@@ -209,7 +200,6 @@ runuser -u zabbix -- /opt/asnname/venv/bin/python3 -c 'import sys; print("Python
 runuser -u zabbix -- test -x /etc/eras/snmp_project/snmp_monitor
 if ((!no_start)); then
   systemctl daemon-reload
-  [[ -z $wireguard_file ]] || systemctl enable --now wg-quick@wg0
   systemctl enable zabbix-proxy zabbix-agent2
   systemctl restart zabbix-proxy zabbix-agent2
   [[ -z $pppoe_target ]] || systemctl enable --now pppoe-sessions.timer
