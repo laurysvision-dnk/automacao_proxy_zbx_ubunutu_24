@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+*.psk
+wg0.conf
+community
+*.db
+*.db-*
+current.json
+*.log
+.DS_Store

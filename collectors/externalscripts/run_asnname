@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ $# -ne 3 ]]; then echo 'Expected: <host> <community> <port>' >&2; exit 1; fi
+exec /opt/asnname/venv/bin/python3 /opt/asnname/asnamev4.py "$1" "$2" "$3"

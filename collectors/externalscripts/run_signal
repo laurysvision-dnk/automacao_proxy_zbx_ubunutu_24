@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ $# -ne 6 ]]; then
+  echo 'Expected: <community> <host> <index> <port> <RX|TX> <M|S>' >&2
+  exit 1
+fi
+exec /etc/eras/snmp_project/snmp_monitor "$1" "$2" "$3" "$4" "$5" "$6"

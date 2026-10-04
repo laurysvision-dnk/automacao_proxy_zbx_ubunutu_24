@@ -1,0 +1,82 @@
+# Instalador do proxy Observa
+
+Pacote extraído e auditado no proxy da Conecta em **04/10/2026**. Instala Zabbix Proxy **7.0**, SQLite, Agent2, ferramentas SNMP, Python com ambiente virtual, whois e os coletores ópticos, BGP e PPPoE.
+
+Esta primeira versão atende **Ubuntu 24.04 / Linux amd64**. Os dois executáveis Go são os binários originais em produção, com SHA-256 registrado em `manifest.json`. Seus fontes não foram localizados na VM nem no Mac; não é possível recompilar para ARM nesta versão. Go não é necessário para executar esses binários. `--install-go` instala a ferramenta oferecida pelo Ubuntu para desenvolvimento.
+
+## Instalação a partir do Git
+
+Use as URLs deste repositório abaixo. Em repositório privado, configure antes uma chave de leitura para o Git; não inclua tokens na URL.
+
+```bash
+INSTALLER_URL='https://raw.githubusercontent.com/laurysvision-dnk/automacao_proxy_zbx_ubunutu_24/v1.0.0/bootstrap.sh'
+REPO_GIT='https://github.com/laurysvision-dnk/automacao_proxy_zbx_ubunutu_24.git'
+curl -fsSL "$INSTALLER_URL" -o /tmp/observa-proxy-bootstrap.sh
+sudo bash /tmp/observa-proxy-bootstrap.sh \
+  --repo "$REPO_GIT" --ref v1.0.0 \
+  --server zabbix.exemplo.com.br \
+  --hostname PRX-NOVO-PROVEDOR
+```
+
+Para Git privado via SSH, clone o repositório usando sua chave e execute `sudo bash install.sh ...`, ou forneça `--repo git@github.com:laurysvision-dnk/automacao_proxy_zbx_ubunutu_24.git` ao bootstrap já baixado. A identidade que executa o clone precisa ter acesso ao repositório e conhecer a chave SSH do servidor Git.
+
+O bootstrap baixa uma revisão explícita, exibe seu commit e chama o instalador. Use uma tag de versão para repetir a mesma instalação. `--dry-run` mostra o plano; `--no-start` instala e valida os arquivos sem habilitar ou iniciar os serviços.
+
+## PPPoE
+
+Crie um arquivo local protegido contendo a comunidade SNMP. O instalador recebe somente o caminho; a comunidade não precisa aparecer no comando nem no Git.
+
+```bash
+sudo install -m 600 /dev/null /root/pppoe-community
+sudo nano /root/pppoe-community
+sudo bash install.sh \
+  --server zabbix.exemplo.com.br --hostname PRX-NOVO-PROVEDOR \
+  --pppoe-target 198.51.100.10 --pppoe-host PPPOE-NOVO-PROVEDOR \
+  --community-file /root/pppoe-community
+```
+
+A instalação cria `pppoe-sessions.service` e `pppoe-sessions.timer`, com execução a cada cinco minutos, mantendo o contrato existente:
+
+- Arquivo local: `/var/lib/pppoe-sessions/current.json`, acessível somente ao root.
+- Envio ao proxy local: `127.0.0.1:10051`.
+- Nome técnico do host: valor de `--pppoe-host`.
+- Item trapper: **`pppoe.sessions.snapshot.gzbase64`**.
+
+O host deve existir no Zabbix, estar associado a este proxy e ter esse item trapper/template. O coletor exige conectividade SNMP com o BNG. A primeira coleta automática ocorre na próxima janela de cinco minutos. Depois de configurar o host, é possível testar com `sudo systemctl start pppoe-sessions.service`.
+
+Nesta versão há **um concentrador PPPoE por proxy**, reproduzindo a instalação encontrada. Reexecutar o instalador sem parâmetros PPPoE preserva a configuração anterior.
+
+## WireGuard e TLS
+
+A comunicação do proxy auditado com o Zabbix usa WireGuard. A nova VM também precisa de uma rota funcional até o servidor e os equipamentos. Chaves e endereços de túnel são individuais por VM e não são copiados do proxy da Conecta.
+
+Para instalar uma configuração de túnel já emitida para a nova VM, acrescente `--wireguard-config-file /root/wg0.conf`. O instalador instala `wireguard-tools`, protege `/etc/wireguard/wg0.conf` e habilita `wg-quick@wg0` antes dos serviços Zabbix. O arquivo contém segredos e deve permanecer fora do repositório. Sem esse parâmetro, o instalador mantém a rede existente.
+
+Para TLS PSK acrescente `--psk-file /root/proxy.psk --psk-identity PRX-NOVO-PROVEDOR`. A chave precisa conter 32 a 512 caracteres hexadecimais, em quantidade par. Cadastre a mesma identidade/chave na configuração do proxy e, se monitorar o Agent2, na configuração daquele host no Zabbix.
+
+## Depois da instalação
+
+1. Cadastre no Zabbix um **proxy ativo**, usando exatamente o nome de `--hostname`.
+2. Vincule o proxy ao provedor no painel Observa.
+3. Adicione ou importe os hosts manualmente no Zabbix, associando-os ao proxy e aos grupos do provedor.
+4. Vincule os templates que chamam os scripts externos e configure suas macros SNMP.
+5. Para PPPoE, confira também o item trapper acima.
+
+Este instalador prepara a VM. Ele não cria hosts, não importa templates, não cria o cadastro do proxy no servidor e não configura o vínculo do provedor no backend. Essas são operações distintas do cadastro automático de grupos pelo backend.
+
+## Atualização e verificação
+
+```bash
+sudo systemctl status zabbix-proxy zabbix-agent2 --no-pager
+sudo systemctl list-timers 'pppoe*' --no-pager
+sudo journalctl -u pppoe-sessions.service -n 30 --no-pager
+sudo zabbix_proxy -T -c /etc/zabbix/zabbix_proxy.conf
+```
+
+O instalador valida o sistema e os checksums, mantém o banco SQLite, faz backup dos arquivos existentes em `/var/backups/observa-proxy/` e valida as configurações antes de iniciar os serviços. Não faz migração automática entre versões maiores do Zabbix. Em um proxy anterior a este instalador, exige `--replace-config` para substituir configurações; esse parâmetro autoriza a atualização e os reinícios correspondentes. Faça atualizações de proxies existentes em uma janela de manutenção.
+
+O backup contém configurações/segredos locais e deve permanecer protegido no servidor. Não copie esse diretório ao Git.
+
+Testes locais: `python3 -m unittest discover -s tests -v` e `bash -n install.sh bootstrap.sh`. Também foi feita instalação em contêiner Ubuntu 24.04 amd64, validação das configurações reais do Zabbix, execução do proxy para criar SQLite e reinstalação verificando preservação do banco. Os serviços systemd do proxy de produção foram somente consultados.
+
+Documentação oficial: [pacotes Zabbix 7.0](https://www.zabbix.com/documentation/7.0/en/manual/installation/install_from_packages), [scripts externos](https://www.zabbix.com/documentation/7.0/en/manual/config/items/itemtypes/external).
