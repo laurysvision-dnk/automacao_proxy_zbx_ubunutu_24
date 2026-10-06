@@ -59,6 +59,12 @@ class CollectorsTest(unittest.TestCase):
         for name, expected in json.loads((ROOT / 'manifest.json').read_text()).items():
             self.assertEqual(hashlib.sha256((ROOT / name).read_bytes()).hexdigest(), expected, name)
 
+    def test_beeppp_script_has_linux_shebang_and_valid_python(self):
+        script = (ROOT / 'collectors/externalscripts/beeppp_api_zbx.py').read_bytes()
+        self.assertTrue(script.startswith(b'#!/usr/lib/zabbix/externalscripts/venv/bin/python3\n'))
+        self.assertNotIn(b'\r\n', script)
+        compile(script, 'beeppp_api_zbx.py', 'exec')
+
     def test_installer_rejects_incomplete_pppoe_parameters_before_mutation(self):
         result = subprocess.run(['bash', str(ROOT / 'install.sh'), '--server', '192.0.2.2', '--hostname', 'PRX-TESTE', '--pppoe-target', '198.51.100.1', '--dry-run'], capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)

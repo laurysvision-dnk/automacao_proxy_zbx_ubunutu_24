@@ -47,7 +47,7 @@ if [[ -n $psk_file || -n $psk_identity ]]; then
   unset psk
 fi
 if ((dry_run)); then
-  printf 'Plano: sincronizar horário por NTP, Zabbix Proxy 7.0 SQLite + Agent2, SNMP, Python/venv, whois e coletores ópticos/BGP.\nServidor: %s\nProxy: %s\n' "$server" "$proxy_name"
+  printf 'Plano: sincronizar horário por NTP, Zabbix Proxy 7.0 SQLite + Agent2, SNMP, Python/venv, whois e coletores ópticos/BGP/Beeppp (Cisco/MikroTik).\nServidor: %s\nProxy: %s\n' "$server" "$proxy_name"
   [[ -z $pppoe_target ]] || printf 'PPPoE: %s, host %s, timer de cinco minutos; segredo vindo de arquivo local.\n' "$pppoe_target" "$pppoe_host"
   [[ -z $psk_file ]] || printf 'TLS PSK habilitado; conteúdo não será exibido.\n'
   exit 0
@@ -75,7 +75,7 @@ restore_policy() {
 trap restore_policy EXIT
 backup_dir="/var/backups/observa-proxy/$(date -u +%Y%m%dT%H%M%SZ)-$$"
 install -d -m 700 "$backup_dir"
-for path in /etc/zabbix/zabbix_proxy.conf /etc/zabbix/zabbix_agent2.conf /etc/zabbix/observa.psk /etc/pppoe-sessions/community /etc/pppoe-sessions/collector.env /opt/asnname/asnamev4.py /opt/asnname/asnamev6.py /opt/asnname/status_as.py /etc/eras/snmp_project/snmp_monitor /usr/local/bin/pppoe-sessions /etc/systemd/system/pppoe-sessions.service /etc/systemd/system/pppoe-sessions.timer; do
+for path in /etc/zabbix/zabbix_proxy.conf /etc/zabbix/zabbix_agent2.conf /etc/zabbix/observa.psk /etc/pppoe-sessions/community /etc/pppoe-sessions/collector.env /opt/asnname/asnamev4.py /opt/asnname/asnamev6.py /opt/asnname/status_as.py /etc/eras/snmp_project/snmp_monitor /usr/local/bin/pppoe-sessions /usr/lib/zabbix/externalscripts/beeppp_api_zbx.py /etc/systemd/system/pppoe-sessions.service /etc/systemd/system/pppoe-sessions.timer; do
   if [[ -f $path ]]; then cp --parents -- "$path" "$backup_dir/"; fi
 done
 export DEBIAN_FRONTEND=noninteractive
@@ -149,6 +149,15 @@ install -d -m 755 /opt/asnname /etc/eras/snmp_project /usr/lib/zabbix/externalsc
 if [[ ! -x /opt/asnname/venv/bin/python3 ]]; then python3 -m venv /opt/asnname/venv; fi
 chown -R root:zabbix /opt/asnname/venv
 chmod -R g+rX,o-rwx /opt/asnname/venv
+beeppp_dir=/usr/lib/zabbix/externalscripts
+if [[ ! -x $beeppp_dir/venv/bin/python3 ]]; then python3 -m venv "$beeppp_dir/venv"; fi
+"$beeppp_dir/venv/bin/pip" install --disable-pip-version-check --no-input -r "$ROOT_DIR/collectors/externalscripts/requirements.beeppp.txt"
+chown -R root:zabbix "$beeppp_dir/venv"
+chmod -R g+rX,o-rwx "$beeppp_dir/venv"
+runuser -u zabbix -- "$beeppp_dir/venv/bin/python3" -c 'import netmiko, paramiko, routeros_api; assert paramiko.__version__ == "3.5.1"'
+install -o root -g zabbix -m 750 "$ROOT_DIR/collectors/externalscripts/beeppp_api_zbx.py" "$beeppp_dir/beeppp_api_zbx.py"
+install -d -m 755 /usr/share/doc/beeppp-zabbix
+install -m 644 "$ROOT_DIR/collectors/externalscripts/LICENSE.beeppp.txt" /usr/share/doc/beeppp-zabbix/LICENSE.txt
 install -m 644 "$ROOT_DIR"/collectors/asnname/*.py /opt/asnname/
 for script in asname discovery_hw_interfaces_opticas_debian11.py run_signal run_asnname run_asnamev6 status_asn; do
   if [[ -f /usr/lib/zabbix/externalscripts/$script ]]; then
@@ -239,6 +248,7 @@ WantedBy=timers.target
 UNIT
 fi
 runuser -u zabbix -- /opt/asnname/venv/bin/python3 -c 'import sys; print("Python acessível ao usuário zabbix:", sys.version.split()[0])'
+runuser -u zabbix -- test -x "$beeppp_dir/beeppp_api_zbx.py"
 runuser -u zabbix -- test -x /etc/eras/snmp_project/snmp_monitor
 if ((!no_start)); then
   systemctl daemon-reload
@@ -250,3 +260,4 @@ fi
 printf 'Instalação concluída. Backup das configurações: %s\n' "$backup_dir"
 printf 'Cadastre no servidor um proxy ativo com o nome %s e associe os hosts e templates a ele.\n' "$proxy_name"
 printf 'PPPoE precisa do item trapper pppoe.sessions.snapshot.gzbase64 no host técnico informado.\n'
+printf 'Beeppp Cisco/MikroTik instalado; vincule o template e configure as macros no host manualmente.\n'

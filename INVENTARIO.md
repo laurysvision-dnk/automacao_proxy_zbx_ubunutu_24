@@ -25,6 +25,8 @@ Levantamento por SSH em **04/10/2026**. Nenhum serviço de produção foi reinst
 | `asname` | Consulta ASN via whois, mantida para compatibilidade | Bash e whois; interface antiga com três argumentos |
 | `/usr/local/bin/pppoe-sessions` | Coleta sessões PPPoE via SNMP, salva snapshot e envia trapper comprimido | Comunidade em arquivo root; target, output, zabbix-address, zabbix-host, zabbix-key |
 
+Inclusão posterior em 06/10/2026, não encontrada na auditoria original da Conecta: `beeppp_api_zbx.py` da Bee Solutions, para coleta PPPoE Cisco/MikroTik via SSH/API. Fica em `/usr/lib/zabbix/externalscripts` com venv próprio no subdiretório `venv`; licença MIT e hashes estão no pacote. O Cisco da Hycom retornou 90 sessões em teste real. Template e macros são configurados manualmente no host; o coletor SNMP/trapper anterior permanece independente.
+
 Todos os scripts externos estão em `/usr/lib/zabbix/externalscripts`. Os caminhos e a ordem dos argumentos foram preservados no instalador, pois os templates do Zabbix dependem deles.
 
 ## Ajustes confirmados

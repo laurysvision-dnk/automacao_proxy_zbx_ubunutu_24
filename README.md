@@ -1,6 +1,6 @@
 # Instalador do proxy Observa
 
-Pacote extraído e auditado no proxy da Conecta em **04/10/2026**. Instala Zabbix Proxy **7.0**, SQLite, Agent2, `fping` para verificações ICMP, ferramentas SNMP, Python com ambiente virtual, whois e os coletores ópticos, BGP e PPPoE. O caminho de `fping` é detectado e configurado no proxy. Durante a instalação normal, sincroniza o relógio via NTP antes de iniciar o proxy, preservando o fuso horário existente.
+Pacote extraído e auditado no proxy da Conecta em **04/10/2026**. Instala Zabbix Proxy **7.0**, SQLite, Agent2, `fping` para verificações ICMP, ferramentas SNMP, Python com ambiente virtual, whois e os coletores ópticos, BGP e PPPoE. Também instala o coletor Beeppp para Cisco e MikroTik. O caminho de `fping` é detectado e configurado no proxy. Durante a instalação normal, sincroniza o relógio via NTP antes de iniciar o proxy, preservando o fuso horário existente.
 
 Esta versão atende **Ubuntu 24.04 e 24.10 / Linux amd64**. No 24.04, usa o repositório oficial do Zabbix 7.0; no 24.10, usa os pacotes Zabbix 7.0 do próprio Ubuntu. O instalador confirma que Proxy, Agent2 e Sender disponíveis são da série 7.0 antes de instalá-los. Ubuntu 24.10 já chegou ao fim do suporte: mantenha uma fonte de pacotes acessível e planeje migrar a VM para uma versão LTS. Os dois executáveis Go são os binários originais em produção, com SHA-256 registrado em `manifest.json`. Seus fontes não foram localizados na VM nem no Mac; não é possível recompilar para ARM nesta versão. Go não é necessário para executar esses binários. `--install-go` instala a ferramenta oferecida pelo Ubuntu para desenvolvimento.
 
@@ -46,6 +46,14 @@ O host deve existir no Zabbix, estar associado a este proxy e ter esse item trap
 
 Nesta versão há **um concentrador PPPoE por proxy**, reproduzindo a instalação encontrada. Reexecutar o instalador sem parâmetros PPPoE preserva a configuração anterior.
 
+## Beeppp para Cisco e MikroTik
+
+O instalador copia `collectors/externalscripts/beeppp_api_zbx.py` para `/usr/lib/zabbix/externalscripts/beeppp_api_zbx.py` e instala `netmiko==4.4.0`, `RouterOS-api==0.18.1` e `paramiko==3.5.1` em `/usr/lib/zabbix/externalscripts/venv`. O script é a versão original Bee Solutions do pacote fornecido, com apenas finais de linha normalizados para LF, como pede a documentação; a licença MIT acompanha o pacote. Paramiko 3.5.1 foi validado com o Cisco da Hycom, cujo SSH oferece algoritmos legados. O teste real como usuário `zabbix` retornou JSON válido com 90 sessões PPPoE.
+
+O instalador **não importa o template Beeppp nem configura macros ou credenciais**. Depois de criar o host e vinculá-lo ao proxy, importe/vincule o template manualmente e configure no host `{$BEEPPP_USUARIO}`, `{$BEEPPP_SENHA}`, `{$BEEPPP_PORTA}` e `{$BEEPPP_VENDOR}` (`cisco` ou `mikrotik`). Para a senha, use macro do tipo Secret text. Confirme que a saída do item `beeppp_api_zbx.py[...]` é JSON válido antes de usar os itens dependentes.
+
+Esse coletor é separado do serviço `pppoe-sessions` por SNMP/trapper descrito acima. Instalar o Beeppp não modifica o serviço existente nem configura Huawei com esse template. A instalação do arquivo não substitui o teste de conectividade SSH/API do equipamento a partir do proxy.
+
 ## Rede e TLS
 
 O instalador não instala nem configura WireGuard. A conectividade da VM com o servidor Zabbix e os equipamentos deve ser preparada separadamente.
@@ -59,7 +67,7 @@ Para TLS PSK acrescente `--psk-file /root/proxy.psk --psk-identity PRX-NOVO-PROV
 1. Cadastre no Zabbix um **proxy ativo**, usando exatamente o nome de `--hostname`.
 2. Vincule o proxy ao provedor no painel Observa.
 3. Adicione ou importe os hosts manualmente no Zabbix, associando-os ao proxy e aos grupos do provedor.
-4. Vincule os templates que chamam os scripts externos e configure suas macros SNMP.
+4. Vincule manualmente os templates que chamam os scripts externos e configure as macros necessárias em cada host.
 5. Para PPPoE, confira também o item trapper acima.
 
 Este instalador prepara a VM. Ele não cria hosts, não importa templates, não cria o cadastro do proxy no servidor e não configura o vínculo do provedor no backend. Essas são operações distintas do cadastro automático de grupos pelo backend.
