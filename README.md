@@ -2,25 +2,25 @@
 
 Pacote extraído e auditado no proxy da Conecta em **04/10/2026**. Instala Zabbix Proxy **7.0**, SQLite, Agent2, ferramentas SNMP, Python com ambiente virtual, whois e os coletores ópticos, BGP e PPPoE.
 
-Esta primeira versão atende **Ubuntu 24.04 / Linux amd64**. Os dois executáveis Go são os binários originais em produção, com SHA-256 registrado em `manifest.json`. Seus fontes não foram localizados na VM nem no Mac; não é possível recompilar para ARM nesta versão. Go não é necessário para executar esses binários. `--install-go` instala a ferramenta oferecida pelo Ubuntu para desenvolvimento.
+Esta versão atende **Ubuntu 24.04 e 24.10 / Linux amd64**. No 24.04, usa o repositório oficial do Zabbix 7.0; no 24.10, usa os pacotes Zabbix 7.0 do próprio Ubuntu. O instalador confirma que Proxy, Agent2 e Sender disponíveis são da série 7.0 antes de instalá-los. Ubuntu 24.10 já chegou ao fim do suporte: mantenha uma fonte de pacotes acessível e planeje migrar a VM para uma versão LTS. Os dois executáveis Go são os binários originais em produção, com SHA-256 registrado em `manifest.json`. Seus fontes não foram localizados na VM nem no Mac; não é possível recompilar para ARM nesta versão. Go não é necessário para executar esses binários. `--install-go` instala a ferramenta oferecida pelo Ubuntu para desenvolvimento.
 
 ## Instalação a partir do Git
 
 Use as URLs deste repositório abaixo. Em repositório privado, configure antes uma chave de leitura para o Git; não inclua tokens na URL.
 
 ```bash
-INSTALLER_URL='https://raw.githubusercontent.com/laurysvision-dnk/automacao_proxy_zbx_ubunutu_24/v1.0.1/bootstrap.sh'
+INSTALLER_URL='https://raw.githubusercontent.com/laurysvision-dnk/automacao_proxy_zbx_ubunutu_24/main/bootstrap.sh'
 REPO_GIT='https://github.com/laurysvision-dnk/automacao_proxy_zbx_ubunutu_24.git'
 curl -fsSL "$INSTALLER_URL" -o /tmp/observa-proxy-bootstrap.sh
 sudo bash /tmp/observa-proxy-bootstrap.sh \
-  --repo "$REPO_GIT" --ref v1.0.1 \
+  --repo "$REPO_GIT" --ref main \
   --server zabbix.exemplo.com.br \
   --hostname PRX-NOVO-PROVEDOR
 ```
 
 Para Git privado via SSH, clone o repositório usando sua chave e execute `sudo bash install.sh ...`, ou forneça `--repo git@github.com:laurysvision-dnk/automacao_proxy_zbx_ubunutu_24.git` ao bootstrap já baixado. A identidade que executa o clone precisa ter acesso ao repositório e conhecer a chave SSH do servidor Git.
 
-O bootstrap baixa uma revisão explícita, exibe seu commit e chama o instalador. Use uma tag de versão para repetir a mesma instalação. `--dry-run` mostra o plano; `--no-start` instala e valida os arquivos sem habilitar ou iniciar os serviços.
+O bootstrap baixa uma revisão explícita, exibe seu commit e chama o instalador. Depois da publicação, use a nova tag de versão para repetir a mesma instalação. A tag `v1.0.1` é anterior ao suporte 24.10 e continuará recusando essa versão. `--dry-run` mostra o plano; `--no-start` instala e valida os arquivos sem habilitar ou iniciar os serviços.
 
 ## PPPoE
 

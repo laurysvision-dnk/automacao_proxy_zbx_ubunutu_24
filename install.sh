@@ -16,7 +16,7 @@ Uso: sudo bash install.sh --server IP_OU_DNS --hostname NOME_PROXY [opções]
   --replace-config          Permitir substituir configuração de proxy existente
   --no-start                Instalar e validar arquivos sem iniciar/habilitar serviços
   --dry-run                 Mostrar plano sem alterar o sistema
-Suporte desta versão: Ubuntu 24.04, Linux amd64, Zabbix 7.0, SQLite.
+Suporte desta versão: Ubuntu 24.04 ou 24.10, Linux amd64, Zabbix 7.0, SQLite.
 HELP
 }
 fail() { printf 'Erro: %s\n' "$*" >&2; exit 1; }
@@ -55,7 +55,7 @@ fi
 ((EUID == 0)) || fail 'Execute como root ou com sudo.'
 # shellcheck source=/dev/null
 source /etc/os-release
-[[ $ID == ubuntu && $VERSION_ID == 24.04 && $(uname -m) == x86_64 ]] || fail 'Esta versão requer Ubuntu 24.04 amd64; os fontes Go ainda não estão disponíveis para outras arquiteturas.'
+[[ $ID == ubuntu && ( $VERSION_ID == 24.04 || $VERSION_ID == 24.10 ) && $(uname -m) == x86_64 ]] || fail 'Esta versão requer Ubuntu 24.04 ou 24.10 amd64; os fontes Go ainda não estão disponíveis para outras arquiteturas.'
 if ((!no_start)); then
   [[ -d /run/systemd/system ]] || fail 'systemd não está ativo. Para validar em contêiner use --no-start.'
 fi
@@ -90,9 +90,16 @@ for name,expected in json.loads((root/'manifest.json').read_text()).items():
         raise SystemExit('Pacote alterado ou incompleto: '+name)
 print('Checksums dos coletores conferidos.')
 PY
-curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 'https://repo.zabbix.com/zabbix/7.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_7.0-5+ubuntu24.04_all.deb' -o "$work_dir/zabbix-release.deb"
-dpkg -i "$work_dir/zabbix-release.deb" >/dev/null
-apt-get update -qq
+if [[ $VERSION_ID == 24.04 ]]; then
+  curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 'https://repo.zabbix.com/zabbix/7.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_7.0-5+ubuntu24.04_all.deb' -o "$work_dir/zabbix-release.deb"
+  dpkg -i "$work_dir/zabbix-release.deb" >/dev/null
+  apt-get update -qq
+else
+  for package in zabbix-proxy-sqlite3 zabbix-agent2 zabbix-sender; do
+    candidate=$(apt-cache policy "$package" | awk '/Candidate:/ {print $2}')
+    [[ $candidate =~ ^(1:)?7\.0\. ]] || fail "Ubuntu 24.10 precisa oferecer $package da série 7.0; candidato atual: $candidate"
+  done
+fi
 if [[ -f /usr/sbin/policy-rc.d ]]; then cp -p /usr/sbin/policy-rc.d "$work_dir/policy-original"; fi
 policy_changed=1
 cat > /usr/sbin/policy-rc.d <<POLICY
