@@ -47,7 +47,7 @@ if [[ -n $psk_file || -n $psk_identity ]]; then
   unset psk
 fi
 if ((dry_run)); then
-  printf 'Plano: Zabbix Proxy 7.0 SQLite + Agent2, SNMP, Python/venv, whois e coletores ópticos/BGP.\nServidor: %s\nProxy: %s\n' "$server" "$proxy_name"
+  printf 'Plano: sincronizar horário por NTP, Zabbix Proxy 7.0 SQLite + Agent2, SNMP, Python/venv, whois e coletores ópticos/BGP.\nServidor: %s\nProxy: %s\n' "$server" "$proxy_name"
   [[ -z $pppoe_target ]] || printf 'PPPoE: %s, host %s, timer de cinco minutos; segredo vindo de arquivo local.\n' "$pppoe_target" "$pppoe_host"
   [[ -z $psk_file ]] || printf 'TLS PSK habilitado; conteúdo não será exibido.\n'
   exit 0
@@ -83,6 +83,37 @@ apt-get update -qq
 apt-get install -y -qq ca-certificates curl fping git python3 python3-venv snmp whois sqlite3
 fping_path=$(command -v fping)
 fping6_path=$(command -v fping6 || true)
+if ((!no_start)); then
+  if systemctl is-active --quiet chrony.service; then
+    clock_service=chrony
+  elif systemctl is-active --quiet systemd-timesyncd.service; then
+    clock_service=systemd-timesyncd
+  else
+    apt-get install -y -qq chrony
+    systemctl enable --now chrony.service
+    clock_service=chrony
+  fi
+  if [[ $clock_service == chrony ]]; then
+    chronyc -a 'makestep 0.1 1' >/dev/null
+    chronyc -a burst 4/4 >/dev/null
+    chronyc waitsync 12 0 0 5 || fail 'O relógio não sincronizou pelo Chrony. Verifique as fontes NTP e o acesso à rede.'
+  else
+    timedatectl set-ntp true
+    systemctl restart systemd-timesyncd.service
+    clock_synchronized=0
+    for ((attempt=0; attempt<30; attempt++)); do
+      if [[ $(timedatectl show --property=NTPSynchronized --value) == yes ]]; then
+        clock_synchronized=1
+        break
+      fi
+      sleep 2
+    done
+    ((clock_synchronized)) || fail 'O relógio não sincronizou pelo systemd-timesyncd. Verifique as fontes NTP e o acesso à rede.'
+  fi
+  printf 'Relógio sincronizado por %s: %s\n' "$clock_service" "$(date --iso-8601=seconds)"
+else
+  printf 'Sincronização NTP ignorada em --no-start (systemd inativo).\n'
+fi
 python3 - "$ROOT_DIR" <<'PY'
 import hashlib,json,pathlib,sys
 root=pathlib.Path(sys.argv[1])
