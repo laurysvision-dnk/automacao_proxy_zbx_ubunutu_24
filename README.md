@@ -1,6 +1,6 @@
 # Instalador do proxy Observa
 
-Pacote extraído e auditado no proxy da Conecta em **04/10/2026**. Instala Zabbix Proxy **7.0**, SQLite, Agent2, ferramentas SNMP, Python com ambiente virtual, whois e os coletores ópticos, BGP e PPPoE.
+Pacote extraído e auditado no proxy da Conecta em **04/10/2026**. Instala Zabbix Proxy **7.0**, SQLite, Agent2, `fping` para verificações ICMP, ferramentas SNMP, Python com ambiente virtual, whois e os coletores ópticos, BGP e PPPoE. O caminho de `fping` é detectado e configurado no proxy.
 
 Esta versão atende **Ubuntu 24.04 e 24.10 / Linux amd64**. No 24.04, usa o repositório oficial do Zabbix 7.0; no 24.10, usa os pacotes Zabbix 7.0 do próprio Ubuntu. O instalador confirma que Proxy, Agent2 e Sender disponíveis são da série 7.0 antes de instalá-los. Ubuntu 24.10 já chegou ao fim do suporte: mantenha uma fonte de pacotes acessível e planeje migrar a VM para uma versão LTS. Os dois executáveis Go são os binários originais em produção, com SHA-256 registrado em `manifest.json`. Seus fontes não foram localizados na VM nem no Mac; não é possível recompilar para ARM nesta versão. Go não é necessário para executar esses binários. `--install-go` instala a ferramenta oferecida pelo Ubuntu para desenvolvimento.
 

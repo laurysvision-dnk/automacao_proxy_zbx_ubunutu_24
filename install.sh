@@ -80,7 +80,9 @@ for path in /etc/zabbix/zabbix_proxy.conf /etc/zabbix/zabbix_agent2.conf /etc/za
 done
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq ca-certificates curl git python3 python3-venv snmp whois sqlite3
+apt-get install -y -qq ca-certificates curl fping git python3 python3-venv snmp whois sqlite3
+fping_path=$(command -v fping)
+fping6_path=$(command -v fping6 || true)
 python3 - "$ROOT_DIR" <<'PY'
 import hashlib,json,pathlib,sys
 root=pathlib.Path(sys.argv[1])
@@ -135,6 +137,8 @@ DBName=/var/lib/zabbix/zabbix_proxy.db
 LogFile=/var/log/zabbix/zabbix_proxy.log
 PidFile=/run/zabbix/zabbix_proxy.pid
 ExternalScripts=/usr/lib/zabbix/externalscripts
+FpingLocation=$fping_path
+Fping6Location=$fping6_path
 Timeout=30
 CONF
 cat > "$work_dir/agent.conf" <<CONF
