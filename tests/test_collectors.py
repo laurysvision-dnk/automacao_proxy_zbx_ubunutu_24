@@ -1,3 +1,4 @@
+import io
 import hashlib
 import importlib.util
 import json
@@ -20,6 +21,9 @@ optical = load('optical', 'collectors/externalscripts/discovery_hw_interfaces_op
 v4 = load('v4', 'collectors/asnname/asnamev4.py')
 v6 = load('v6', 'collectors/asnname/asnamev6.py')
 status = load('status', 'collectors/asnname/status_as.py')
+
+
+cisco = load('cisco', 'collectors/externalscripts/discovery_bee_bgp_peers_cisco.py')
 
 
 class CollectorsTest(unittest.TestCase):
@@ -54,6 +58,26 @@ class CollectorsTest(unittest.TestCase):
         with patch.object(status.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1, stdout='')):
             with self.assertRaisesRegex(ValueError, 'SNMP query failed'):
                 status.query('snmpget', 'TEST', '192.0.2.1', '161', ['1.2.3'])
+
+    def test_cisco_discovers_each_family_when_whois_is_unavailable(self):
+        for family, suffix, index, peer, version in [
+            ('ipv4', '1.4', '192.0.2.1', '192.0.2.1', 4),
+            ('ipv6', '2.16', '32.1.13.184.0.0.0.0.0.0.0.0.0.0.0.1', '2001:db8::1', 6),
+        ]:
+            with self.subTest(family=family):
+                oid = '.1.3.6.1.4.1.9.9.187.1.2.5.1.11.' + suffix
+                response = subprocess.CompletedProcess([], 0, stdout=oid + '.' + index + ' = Gauge32: 64512')
+                with patch.object(cisco.sys, 'argv', ['script', '192.0.2.2', 'TEST', '161', family]), patch.object(cisco.subprocess, 'run', side_effect=[response, subprocess.TimeoutExpired('whois', 2)]) as run, patch('sys.stdout', new_callable=io.StringIO) as output:
+                    cisco.main()
+                rows = json.loads(output.getvalue())
+                self.assertEqual(rows, [{'{#SNMPINDEX}': index, '{#PEERIP}': peer, '{#SNMPASN}': '64512', '{#BEEPEERNAME}': 'AS64512', '{#PEERTIPO}': version}])
+                self.assertEqual(run.call_args_list[0].args[0][-1], oid)
+
+    def test_cisco_snmp_failure_does_not_emit_empty_discovery(self):
+        with patch.object(cisco.sys, 'argv', ['script', '192.0.2.2', 'TEST', '161', 'ipv4']), patch.object(cisco.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1, stdout='')), patch('sys.stdout', new_callable=io.StringIO) as output:
+            with self.assertRaisesRegex(ValueError, 'SNMP query failed'):
+                cisco.main()
+            self.assertEqual(output.getvalue(), '')
 
     def test_payload_checksums_match_audited_files(self):
         for name, expected in json.loads((ROOT / 'manifest.json').read_text()).items():

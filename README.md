@@ -54,6 +54,14 @@ O instalador **não importa o template Beeppp nem configura macros ou credenciai
 
 Esse coletor é separado do serviço `pppoe-sessions` por SNMP/trapper descrito acima. Instalar o Beeppp não modifica o serviço existente nem configura Huawei com esse template. A instalação do arquivo não substitui o teste de conectividade SSH/API do equipamento a partir do proxy.
 
+## BGP Cisco
+
+O instalador inclui `discovery_bee_bgp_peers_cisco.py` em `/usr/lib/zabbix/externalscripts`, com permissão `root:zabbix 750` e licença MIT preservada. Usa Python 3, SNMP e WHOIS já instalados; não exige sipcalc ou bibliotecas Python adicionais. A reinstalação guarda backup do coletor anterior.
+
+Vincule ao host o **Template Cisco BGP SNMP - ALTA**, associe o proxy e configure `{$SNMP_COMMUNITY}` e `{$SNMP_PORTA}`. A ordem dos argumentos é host, comunidade, porta e `ipv4` ou `ipv6`. O nome técnico do script e as macros LLD são mantidos por compatibilidade. O instalador não importa templates nem altera hosts no servidor.
+
+A descoberta separa IPv4/IPv6, limita a consulta SNMP a 15 segundos e as consultas WHOIS a um orçamento de 6 segundos. Se WHOIS falhar, usa o número do ASN; falha SNMP retorna erro em vez de uma descoberta vazia. O coletor foi validado nos Cisco da Hycom e CGFASTNET em 15/10/2026; cada novo equipamento precisa de validação de conectividade e coleta.
+
 ## Rede e TLS
 
 O instalador não instala nem configura WireGuard. A conectividade da VM com o servidor Zabbix e os equipamentos deve ser preparada separadamente.

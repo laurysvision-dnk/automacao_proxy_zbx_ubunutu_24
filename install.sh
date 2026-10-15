@@ -75,7 +75,7 @@ restore_policy() {
 trap restore_policy EXIT
 backup_dir="/var/backups/observa-proxy/$(date -u +%Y%m%dT%H%M%SZ)-$$"
 install -d -m 700 "$backup_dir"
-for path in /etc/zabbix/zabbix_proxy.conf /etc/zabbix/zabbix_agent2.conf /etc/zabbix/observa.psk /etc/pppoe-sessions/community /etc/pppoe-sessions/collector.env /opt/asnname/asnamev4.py /opt/asnname/asnamev6.py /opt/asnname/status_as.py /etc/eras/snmp_project/snmp_monitor /usr/local/bin/pppoe-sessions /usr/lib/zabbix/externalscripts/beeppp_api_zbx.py /etc/systemd/system/pppoe-sessions.service /etc/systemd/system/pppoe-sessions.timer; do
+for path in /etc/zabbix/zabbix_proxy.conf /etc/zabbix/zabbix_agent2.conf /etc/zabbix/observa.psk /etc/pppoe-sessions/community /etc/pppoe-sessions/collector.env /opt/asnname/asnamev4.py /opt/asnname/asnamev6.py /opt/asnname/status_as.py /etc/eras/snmp_project/snmp_monitor /usr/local/bin/pppoe-sessions /usr/lib/zabbix/externalscripts/beeppp_api_zbx.py /usr/lib/zabbix/externalscripts/discovery_bee_bgp_peers_cisco.py /usr/lib/zabbix/externalscripts/cisco-bgp-LICENSE.txt /etc/systemd/system/pppoe-sessions.service /etc/systemd/system/pppoe-sessions.timer; do
   if [[ -f $path ]]; then cp --parents -- "$path" "$backup_dir/"; fi
 done
 export DEBIAN_FRONTEND=noninteractive
@@ -156,6 +156,8 @@ chown -R root:zabbix "$beeppp_dir/venv"
 chmod -R g+rX,o-rwx "$beeppp_dir/venv"
 runuser -u zabbix -- "$beeppp_dir/venv/bin/python3" -c 'import netmiko, paramiko, routeros_api; assert paramiko.__version__ == "3.5.1"'
 install -o root -g zabbix -m 750 "$ROOT_DIR/collectors/externalscripts/beeppp_api_zbx.py" "$beeppp_dir/beeppp_api_zbx.py"
+install -o root -g zabbix -m 750 "$ROOT_DIR/collectors/externalscripts/discovery_bee_bgp_peers_cisco.py" "$beeppp_dir/discovery_bee_bgp_peers_cisco.py"
+install -o root -g zabbix -m 640 "$ROOT_DIR/collectors/externalscripts/cisco-bgp-LICENSE.txt" "$beeppp_dir/cisco-bgp-LICENSE.txt"
 install -d -m 755 /usr/share/doc/beeppp-zabbix
 install -m 644 "$ROOT_DIR/collectors/externalscripts/LICENSE.beeppp.txt" /usr/share/doc/beeppp-zabbix/LICENSE.txt
 install -m 644 "$ROOT_DIR"/collectors/asnname/*.py /opt/asnname/
@@ -249,6 +251,8 @@ UNIT
 fi
 runuser -u zabbix -- /opt/asnname/venv/bin/python3 -c 'import sys; print("Python acessível ao usuário zabbix:", sys.version.split()[0])'
 runuser -u zabbix -- test -x "$beeppp_dir/beeppp_api_zbx.py"
+runuser -u zabbix -- test -x "$beeppp_dir/discovery_bee_bgp_peers_cisco.py"
+runuser -u zabbix -- python3 -c 'import sys; compile(open(sys.argv[1]).read(), sys.argv[1], "exec")' "$beeppp_dir/discovery_bee_bgp_peers_cisco.py"
 runuser -u zabbix -- test -x /etc/eras/snmp_project/snmp_monitor
 if ((!no_start)); then
   systemctl daemon-reload
