@@ -1,4 +1,5 @@
 {
+  "bin/linux-amd64/olt-huawei-onus": "249673bf81f4da5e5bf58051bdbf80f836f61086513fe439d784405df0751708",
   "bin/linux-amd64/pppoe-sessions": "26f841ed578fe17a30532aeeb1f0664637e34cf621e28fe4977a86f2491954d0",
   "bin/linux-amd64/snmp_monitor": "909d74c31bb321040cd75ae9538da8b3e0a03b1bcbff94328568327cd407001f",
   "collectors/asnname/asnamev4.py": "fa75d9e5464d30a561f2a6b691ef96e10afd42197729c9f0aa1af66e15fc89b5",
@@ -10,6 +11,7 @@
   "collectors/externalscripts/cisco-bgp-LICENSE.txt": "5bf6cad344455bf7fac54843c73860813317761ea08c15342903c489750603d2",
   "collectors/externalscripts/discovery_bee_bgp_peers_cisco.py": "6076deaf9c5ea2a5dad5ffe8209fccd3dea771e2c8082d6c9a4b5cddc1c5cf59",
   "collectors/externalscripts/discovery_hw_interfaces_opticas_debian11.py": "09867e4843aa993808db1a5dacc40ea03e8c3d3d62ce410826dba58e5bc19b10",
+  "collectors/externalscripts/pondiscovery.sh": "eb4c03e5b049b6b4f2153642fde6e35fba0e7e5190b5deb5c87acfb6660b4df5",
   "collectors/externalscripts/requirements.beeppp.txt": "a63fc2eda956811d3508987b1f3b81fe5bea92e6b05b56274ffcb714980e12ba",
   "collectors/externalscripts/run_asnamev6": "f0dd09b48ea6b93822928bcb28623e01e9fcea6a8ffe0257f5aecb285b0b70c0",
   "collectors/externalscripts/run_asnname": "024b2467d596b6e1ac737a3a6a4e3c422993af3564474eda0310518b86ad316c",

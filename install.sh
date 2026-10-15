@@ -47,7 +47,7 @@ if [[ -n $psk_file || -n $psk_identity ]]; then
   unset psk
 fi
 if ((dry_run)); then
-  printf 'Plano: sincronizar horário por NTP, Zabbix Proxy 7.0 SQLite + Agent2, SNMP, Python/venv, whois e coletores ópticos/BGP/Beeppp (Cisco/MikroTik).\nServidor: %s\nProxy: %s\n' "$server" "$proxy_name"
+  printf 'Plano: sincronizar horário por NTP, Zabbix Proxy 7.0 SQLite + Agent2, SNMP, Python/venv, whois e coletores ópticos/BGP/Beeppp/OLT Huawei.\nServidor: %s\nProxy: %s\n' "$server" "$proxy_name"
   [[ -z $pppoe_target ]] || printf 'PPPoE: %s, host %s, timer de cinco minutos; segredo vindo de arquivo local.\n' "$pppoe_target" "$pppoe_host"
   [[ -z $psk_file ]] || printf 'TLS PSK habilitado; conteúdo não será exibido.\n'
   exit 0
@@ -75,7 +75,7 @@ restore_policy() {
 trap restore_policy EXIT
 backup_dir="/var/backups/observa-proxy/$(date -u +%Y%m%dT%H%M%SZ)-$$"
 install -d -m 700 "$backup_dir"
-for path in /etc/zabbix/zabbix_proxy.conf /etc/zabbix/zabbix_agent2.conf /etc/zabbix/observa.psk /etc/pppoe-sessions/community /etc/pppoe-sessions/collector.env /opt/asnname/asnamev4.py /opt/asnname/asnamev6.py /opt/asnname/status_as.py /etc/eras/snmp_project/snmp_monitor /usr/local/bin/pppoe-sessions /usr/lib/zabbix/externalscripts/beeppp_api_zbx.py /usr/lib/zabbix/externalscripts/discovery_bee_bgp_peers_cisco.py /usr/lib/zabbix/externalscripts/cisco-bgp-LICENSE.txt /etc/systemd/system/pppoe-sessions.service /etc/systemd/system/pppoe-sessions.timer; do
+for path in /etc/zabbix/zabbix_proxy.conf /etc/zabbix/zabbix_agent2.conf /etc/zabbix/observa.psk /etc/pppoe-sessions/community /etc/pppoe-sessions/collector.env /opt/asnname/asnamev4.py /opt/asnname/asnamev6.py /opt/asnname/status_as.py /etc/eras/snmp_project/snmp_monitor /usr/local/bin/pppoe-sessions /usr/lib/zabbix/externalscripts/beeppp_api_zbx.py /usr/lib/zabbix/externalscripts/discovery_bee_bgp_peers_cisco.py /usr/lib/zabbix/externalscripts/cisco-bgp-LICENSE.txt /usr/lib/zabbix/externalscripts/pondiscovery.sh '/etc/alta/OLT HUAWEI - SGP/bin/onus' /etc/systemd/system/pppoe-sessions.service /etc/systemd/system/pppoe-sessions.timer; do
   if [[ -f $path ]]; then cp --parents -- "$path" "$backup_dir/"; fi
 done
 export DEBIAN_FRONTEND=noninteractive
@@ -157,7 +157,12 @@ chmod -R g+rX,o-rwx "$beeppp_dir/venv"
 runuser -u zabbix -- "$beeppp_dir/venv/bin/python3" -c 'import netmiko, paramiko, routeros_api; assert paramiko.__version__ == "3.5.1"'
 install -o root -g zabbix -m 750 "$ROOT_DIR/collectors/externalscripts/beeppp_api_zbx.py" "$beeppp_dir/beeppp_api_zbx.py"
 install -o root -g zabbix -m 750 "$ROOT_DIR/collectors/externalscripts/discovery_bee_bgp_peers_cisco.py" "$beeppp_dir/discovery_bee_bgp_peers_cisco.py"
+install -o root -g zabbix -m 750 "$ROOT_DIR/collectors/externalscripts/pondiscovery.sh" "$beeppp_dir/pondiscovery.sh"
 install -o root -g zabbix -m 640 "$ROOT_DIR/collectors/externalscripts/cisco-bgp-LICENSE.txt" "$beeppp_dir/cisco-bgp-LICENSE.txt"
+if [[ ! -d '/etc/alta/OLT HUAWEI - SGP/bin' ]]; then install -d -o root -g zabbix -m 750 '/etc/alta/OLT HUAWEI - SGP/bin'; fi
+if [[ ! -d /etc/alta/olt-huawei/targets.d ]]; then install -d -o root -g zabbix -m 750 /etc/alta/olt-huawei/targets.d; fi
+if [[ ! -d /var/lib/alta-olt-huawei ]]; then install -d -o root -g zabbix -m 750 /var/lib/alta-olt-huawei; fi
+install -o root -g zabbix -m 750 "$ROOT_DIR/bin/linux-amd64/olt-huawei-onus" '/etc/alta/OLT HUAWEI - SGP/bin/onus'
 install -d -m 755 /usr/share/doc/beeppp-zabbix
 install -m 644 "$ROOT_DIR/collectors/externalscripts/LICENSE.beeppp.txt" /usr/share/doc/beeppp-zabbix/LICENSE.txt
 install -m 644 "$ROOT_DIR"/collectors/asnname/*.py /opt/asnname/
@@ -252,7 +257,10 @@ fi
 runuser -u zabbix -- /opt/asnname/venv/bin/python3 -c 'import sys; print("Python acessível ao usuário zabbix:", sys.version.split()[0])'
 runuser -u zabbix -- test -x "$beeppp_dir/beeppp_api_zbx.py"
 runuser -u zabbix -- test -x "$beeppp_dir/discovery_bee_bgp_peers_cisco.py"
+runuser -u zabbix -- test -x "$beeppp_dir/pondiscovery.sh"
+runuser -u zabbix -- test -x '/etc/alta/OLT HUAWEI - SGP/bin/onus'
 runuser -u zabbix -- python3 -c 'import sys; compile(open(sys.argv[1]).read(), sys.argv[1], "exec")' "$beeppp_dir/discovery_bee_bgp_peers_cisco.py"
+runuser -u zabbix -- python3 -c 'import sys; compile(open(sys.argv[1]).read(), sys.argv[1], "exec")' "$beeppp_dir/pondiscovery.sh"
 runuser -u zabbix -- test -x /etc/eras/snmp_project/snmp_monitor
 if ((!no_start)); then
   systemctl daemon-reload
@@ -265,3 +273,4 @@ printf 'Instalação concluída. Backup das configurações: %s\n' "$backup_dir"
 printf 'Cadastre no servidor um proxy ativo com o nome %s e associe os hosts e templates a ele.\n' "$proxy_name"
 printf 'PPPoE precisa do item trapper pppoe.sessions.snapshot.gzbase64 no host técnico informado.\n'
 printf 'Beeppp Cisco/MikroTik instalado; vincule o template e configure as macros no host manualmente.\n'
+printf 'OLT Huawei instalado; configure cada alvo SNMP e a integracao central antes de ativar a descoberta PON.\n'

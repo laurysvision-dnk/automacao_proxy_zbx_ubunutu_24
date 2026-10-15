@@ -52,6 +52,12 @@ O instalador copia `collectors/externalscripts/beeppp_api_zbx.py` para `/usr/lib
 
 O instalador **não importa o template Beeppp nem configura macros ou credenciais**. Depois de criar o host e vinculá-lo ao proxy, importe/vincule o template manualmente e configure no host `{$BEEPPP_USUARIO}`, `{$BEEPPP_SENHA}`, `{$BEEPPP_PORTA}` e `{$BEEPPP_VENDOR}` (`cisco` ou `mikrotik`). Para a senha, use macro do tipo Secret text. Confirme que a saída do item `beeppp_api_zbx.py[...]` é JSON válido antes de usar os itens dependentes.
 
+## Coletor OLT Huawei
+
+O instalador coloca o binário SNMP `onus` em `/etc/alta/OLT HUAWEI - SGP/bin/onus` e o script de descoberta `pondiscovery.sh` em `/usr/lib/zabbix/externalscripts/pondiscovery.sh`. Eles são instalados em todos os proxies, sem ativar coleta ou descoberta automaticamente. O proxy não recebe credenciais PostgreSQL SGP nem MySQL; associação de clientes, endereços e escrita do cache continuam no integrador central do Observa.
+
+Para cada OLT, crie no proxy `/etc/alta/olt-huawei/targets.d/<host_id>.json` com `host_id`, `ip`, `port` e `community`. Restrinja o arquivo a `root:zabbix` modo `0640`. O binário `onus` usa as variáveis `LOCAL_OLT_HOST_ID`, `LOCAL_OLT_NAME`, `LOCAL_OLT_IP`, `LOCAL_OLT_PORT` e `LOCAL_OLT_COMMUNITY` de um ambiente privado por OLT; o agendamento central escolhe esse ambiente e executa o binário por SSH. O cache correspondente deve ser publicado atomicamente em `/var/lib/alta-olt-huawei/<host_id>/discovery.json` com leitura para `zabbix`. O wrapper aceita os argumentos `IP PORTA` e, por compatibilidade com regras antigas, `COMUNIDADE IP`. Ele rejeita cache ausente, vazio ou com mais de 30 minutos. Uma instalação existente da Conecta com `.env` em `/etc/alta/OLT HUAWEI - SGP/.env` e cache em `/var/lib/alta-olt-conecta/discovery.json` continua reconhecida. Configure o host e a regra de descoberta no Zabbix somente após validar o cache e o alvo específico.
+
 Esse coletor é separado do serviço `pppoe-sessions` por SNMP/trapper descrito acima. Instalar o Beeppp não modifica o serviço existente nem configura Huawei com esse template. A instalação do arquivo não substitui o teste de conectividade SSH/API do equipamento a partir do proxy.
 
 ## BGP Cisco

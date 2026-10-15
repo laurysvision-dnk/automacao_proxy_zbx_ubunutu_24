@@ -1,9 +1,11 @@
 import io
 import hashlib
 import importlib.util
+from importlib.machinery import SourceFileLoader
 import json
 from pathlib import Path
 import subprocess
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -11,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def load(name, path):
-    spec = importlib.util.spec_from_file_location(name, ROOT / path)
+    spec = importlib.util.spec_from_loader(name, SourceFileLoader(name, str(ROOT / path)))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -24,9 +26,35 @@ status = load('status', 'collectors/asnname/status_as.py')
 
 
 cisco = load('cisco', 'collectors/externalscripts/discovery_bee_bgp_peers_cisco.py')
+pon = load('pon', 'collectors/externalscripts/pondiscovery.sh')
 
 
 class CollectorsTest(unittest.TestCase):
+    def test_huawei_pon_cache_is_scoped_to_configured_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'targets').mkdir()
+            (root / 'cache' / '10734').mkdir(parents=True)
+            (root / 'targets' / '10734.json').write_text(json.dumps({'host_id': '10734', 'ip': '192.0.2.10', 'port': 161, 'community': 'private-test'}))
+            (root / 'cache' / '10734' / 'discovery.json').write_text(json.dumps({'data': [{'{#PON_INDEX}': '1'}]}))
+            with patch.object(pon, 'TARGETS_DIR', root / 'targets'), patch.object(pon, 'CACHE_DIR', root / 'cache'), patch.object(pon, 'LEGACY_ENV', root / 'absent'):
+                self.assertEqual(len(json.loads(pon.discover(['192.0.2.10', '161']))['data']), 1)
+                self.assertEqual(len(json.loads(pon.discover(['private-test', '192.0.2.10']))['data']), 1)
+                with self.assertRaises(ValueError):
+                    pon.discover(['192.0.2.11', '161'])
+                with patch.object(pon.time, 'time', return_value=(root / 'cache' / '10734' / 'discovery.json').stat().st_mtime + 1801):
+                    with self.assertRaisesRegex(ValueError, 'Stale'):
+                        pon.discover(['192.0.2.10', '161'])
+
+    def test_huawei_pon_cache_keeps_legacy_proxy_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'targets').mkdir()
+            (root / '.env').write_text('LOCAL_OLT_IP=192.0.2.12\nLOCAL_OLT_PORT=161\nLOCAL_OLT_COMMUNITY=legacy-test\n')
+            (root / 'discovery.json').write_text(json.dumps({'data': [{'{#PON_INDEX}': '2'}]}))
+            with patch.object(pon, 'TARGETS_DIR', root / 'targets'), patch.object(pon, 'LEGACY_ENV', root / '.env'), patch.object(pon, 'LEGACY_CACHE', root / 'discovery.json'):
+                self.assertEqual(len(json.loads(pon.discover(['192.0.2.12', '161']))['data']), 1)
+
     def test_optical_discovers_100ge_after_row_80_with_physical_index(self):
         names = {str(i): f'"GigabitEthernet0/0/{i}"' for i in range(1, 100)}
         names['120'] = '"100GE0/0/2"'
